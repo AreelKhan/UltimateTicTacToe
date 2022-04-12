@@ -2,7 +2,10 @@ import sys
 import pygame as pg
 import numpy as np
 from random import randint
+from itertools import product
 from agent.main import Agent
+
+# TODO: try to make it so that this game does need a super computer to run
 
 pg.init()
 pg.event.set_allowed([pg.QUIT, pg.MOUSEBUTTONDOWN])
@@ -31,11 +34,11 @@ class UltimateTicTacToe:
         pg.display.set_caption("Ultimate TicTacToe")
 
         # Colors
-        self.BLACK = (32, 32, 32)
-        self.LIGHT_GRAY = (200, 200, 200)
-        self.BLUE = (0, 75, 153)
-        self.RED = (255, 0, 0)
-        self.GREEN = (0, 255, 0)
+        self.BLACK = (0, 30, 60)
+        self.LIGHT_GRAY = (210, 210, 210)
+        self.BLUE = (0, 75, 150)
+        self.RED = (240, 75, 25)
+        self.GREEN = (0, 205, 100)
 
         # Game Board
         self.global_board = np.array(
@@ -50,10 +53,10 @@ class UltimateTicTacToe:
 
         # Agent
         self.agent = Agent()
-        # DOXA uses R and B to identify players. This script uses boolean values,
-        # these dictionaries are helpful to translate between the two
+        # DOXA uses R, B, and S for red, blue, and stalemate respectively.
+        # These dictionaries help translate the DOXA lingo with the variables in this script
         self.player_turn_dict = {True: "R", False: "B"}
-        self.player_color_dict = {"R": self.RED, "B": self.GREEN}
+        self.player_color_dict = {"R": self.RED, "B": self.GREEN, "S": self.LIGHT_GRAY}
 
     def __str__(self):
         """
@@ -89,6 +92,20 @@ class UltimateTicTacToe:
 
         @return: None
         """
+
+        # draw local entries
+        local = self.global_board[local_board]
+        for i in range(self.ROWS ** 2):
+            if local[i] is not None:
+                cell_x = x + (i % self.ROWS) * self.CELL_WIDTH
+                cell_y = y + (i // self.ROWS) * self.CELL_WIDTH
+                pg.draw.rect(
+                    surface=self.win,
+                    color=self.player_color_dict[local[i]],
+                    rect=pg.Rect((cell_x, cell_y), (self.CELL_WIDTH, self.CELL_WIDTH))
+                )
+
+        # draw local grid lines
         for i in range(self.ROWS + 1):
             pg.draw.line(
                 surface=self.win,
@@ -105,17 +122,6 @@ class UltimateTicTacToe:
                 width=3
             )
 
-        local = self.global_board[local_board]
-        for i in range(self.ROWS ** 2):
-            if local[i] is not None:
-                cell_x = x + (local_board % self.ROWS) * self.CELL_WIDTH
-                cell_y = y + (local_board // self.ROWS) * self.CELL_WIDTH
-                pg.draw.rect(
-                    surface=self.win,
-                    color=self.player_color_dict[local[i]],
-                    rect=pg.Rect((cell_x + 2, cell_y), (self.CELL_WIDTH - 3, self.CELL_WIDTH))
-                )
-
     def _render_board(self):
         """
         draws and renders the full game board
@@ -127,34 +133,34 @@ class UltimateTicTacToe:
 
         # TODO: Highlight playable boards
         # TODO: Color each local board according to game state (green, red, yellow, or white)
-        # TODO: Implement board entries
 
         # draw local board
-        for i in range(self.ROWS):
-            for j in range(self.ROWS):
-                self._draw_local(
-                    x=self.GAP + j * self.LOCAL_DISTANCE,
-                    y=self.GAP + i * self.LOCAL_DISTANCE,
-                    local_board=self.ROWS * i + j
-                )
+        for i, j in product(range(self.ROWS), range(self.ROWS)):
+            self._draw_local(
+                x=self.GAP + j * self.LOCAL_DISTANCE,
+                y=self.GAP + i * self.LOCAL_DISTANCE,
+                local_board=self.ROWS * i + j
+            )
 
         pg.display.update()
 
-    def _cell_range(self, cell_corner, coord):
+    def _in_range(self, corner, length, coord):
         """
-        checks if the (x,y) coordinates of the coord parameter are within
-        the range of the cell with top left corner at cell_corner
+        checks if coord falls within the square with side length equal to the
+        length parameter and top left corner at the corner parameter
 
-        @param cell_corner: tuple(float, float)
-            top left corner of cell
-        @param coord: tuple(float, float)
+        @param corner: tuple(int, int)
+            top left corner of square
+        @param length: int
+            length of square
+        @param coord: tuple(int, int)
             coordinates to check
 
         @return: bool
             True if coord in cell, False otherwise
         """
-        if cell_corner[0] <= coord[0] <= cell_corner[0] + self.CELL_WIDTH:
-            if cell_corner[1] <= coord[1] <= cell_corner[1] + self.CELL_WIDTH:
+        if corner[0] <= coord[0] <= corner[0] + length:
+            if corner[1] <= coord[1] <= corner[1] + length:
                 return True
         return False
 
@@ -168,22 +174,32 @@ class UltimateTicTacToe:
         @return: bool
             True if input is valid, False otherwise
         """
-        for i in self.playable_boards:
-            local_x_pos = (i % self.ROWS) * self.LOCAL_WIDTH
-            local_y_pos = (i // self.ROWS) * self.LOCAL_WIDTH
-            for cell_num, cell_content in enumerate(self.global_board[i]):
-                if cell_content is None:
-                    cell_x_pos = (cell_num % self.ROWS) * self.CELL_WIDTH
-                    cell_y_pos = (cell_num // self.ROWS) * self.CELL_WIDTH
-                    valid = self._cell_range(
-                        (local_x_pos + cell_x_pos, local_y_pos + cell_y_pos),
-                        mouse_press
-                    )
-                    if valid:
-                        print("Valid")
-                        return True
-        print("Invalid")
-        return False
+        # TODO: Change to check playable boards instead of all boards
+        # TODO: along the way, diagnose the bug where agent places move somewhere different from current local board
+        for i, j in product(range(self.ROWS), range(self.ROWS)):
+            if self.board_winners[self.ROWS * i + j] is None:  # check only valid local boards
+                local_x = self.GAP + i * self.LOCAL_DISTANCE
+                local_y = self.GAP + j * self.LOCAL_DISTANCE
+                on_local = self._in_range(
+                    corner=(local_x, local_y),
+                    length=self.LOCAL_WIDTH,
+                    coord=mouse_press
+                )
+                if on_local:  # check all cells of the board user pressed
+                    for cell_num, cell_content in enumerate(self.global_board[self.ROWS * i + j]):
+                        if cell_content is None:
+                            cell_x = (cell_num % self.ROWS) * self.CELL_WIDTH
+                            cell_y = (cell_num // self.ROWS) * self.CELL_WIDTH
+                            valid = self._in_range(
+                                corner=(local_x + cell_x, local_y + cell_y),
+                                length=self.CELL_WIDTH,
+                                coord=mouse_press
+                            )
+                            if valid:
+                                print(f"Valid, cell_number = {cell_num}")
+                                return True
+                print("Invalid")
+                return False
 
     def _place_move(self, move):
         """
@@ -194,7 +210,7 @@ class UltimateTicTacToe:
 
         @return: None
         """
-        self.global_board[move] = self.player_turn_dict[self.turn]
+        self.global_board[move[::-1]] = self.player_turn_dict[self.turn]
 
     def main(self):
         """
