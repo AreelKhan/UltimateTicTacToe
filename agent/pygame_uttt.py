@@ -20,7 +20,8 @@ class UltimateTicTacToe:
         self.ROWS = 3
         self.GAP = 25
         self.LOCAL_WIDTH = (self.WIDTH - self.GAP * 4) // self.ROWS  # width of a local board
-        self.CELL_WIDTH = self.LOCAL_WIDTH // self.ROWS  # width of a one cell
+        self.LOCAL_DISTANCE = self.GAP + self.LOCAL_WIDTH  # distance between two consecutive local boards
+        self.CELL_WIDTH = self.LOCAL_WIDTH // self.ROWS  # width of one cell
         # by default there are (3x3) cells on local board
         # and (9x9) cells on global board
 
@@ -33,6 +34,8 @@ class UltimateTicTacToe:
         self.BLACK = (32, 32, 32)
         self.LIGHT_GRAY = (200, 200, 200)
         self.BLUE = (0, 75, 153)
+        self.RED = (255, 0, 0)
+        self.GREEN = (0, 255, 0)
 
         # Game Board
         self.global_board = np.array(
@@ -49,7 +52,8 @@ class UltimateTicTacToe:
         self.agent = Agent()
         # DOXA uses R and B to identify players. This script uses boolean values,
         # these dictionaries are helpful to translate between the two
-        self.player_dict = {True: "R", False: "B"}
+        self.player_turn_dict = {True: "R", False: "B"}
+        self.player_color_dict = {"R": self.RED, "B": self.GREEN}
 
     def __str__(self):
         """
@@ -74,7 +78,7 @@ class UltimateTicTacToe:
                 str_board += sep + "\n"
         return str_board
 
-    def _draw_local_grid(self, x, y):
+    def _draw_local(self, x, y, local_board):
         """
         draws the grid lines for a local board at position x,y
 
@@ -85,86 +89,55 @@ class UltimateTicTacToe:
 
         @return: None
         """
-        for i in range(1, self.ROWS):
-            pg.draw.line(
-                surface=self.win,
-                color=self.LIGHT_GRAY,
-                start_pos=(x, y + self.CELL_WIDTH * i),
-                end_pos=(x + self.CELL_WIDTH * self.ROWS, y + self.CELL_WIDTH * i),
-                width=2
-            )
+        for i in range(self.ROWS + 1):
             pg.draw.line(
                 surface=self.win,
                 color=self.LIGHT_GRAY,
                 start_pos=(x + self.CELL_WIDTH * i, y),
-                end_pos=(x + self.CELL_WIDTH * i, y + self.CELL_WIDTH * self.ROWS),
-                width=2
-            )
-
-    def _draw_global_grid(self):
-        """
-        draws the global grid lines
-
-        @return: None
-        """
-        for i in range(0, self.ROWS):
-            pg.draw.line(
-                surface=self.win,
-                color=self.BLUE,
-                start_pos=(self.LOCAL_WIDTH * i, 0),
-                end_pos=(self.LOCAL_WIDTH * i, self.WIDTH),
-                width=5
+                end_pos=(x + self.CELL_WIDTH * i, y + self.LOCAL_WIDTH),
+                width=3
             )
             pg.draw.line(
                 surface=self.win,
-                color=self.BLUE,
-                start_pos=(0, self.LOCAL_WIDTH * i,),
-                end_pos=(self.WIDTH, self.LOCAL_WIDTH * i),
-                width=5
+                color=self.LIGHT_GRAY,
+                start_pos=(y, x + self.CELL_WIDTH * i),
+                end_pos=(y + self.LOCAL_WIDTH, x + self.CELL_WIDTH * i),
+                width=3
             )
 
-    def _draw_cell(self, local_board, local_cell, player):
-        pass
-
-    def _draw_board(self):
-        """
-        draws the full game board
-
-        @return: None
-        """
-        # highlight playable boards
-
-        # draw local grid lines
-        for i in range(1 + self.ROWS):
-            for j in range(1 + self.ROWS):
-                self._draw_local_grid(
-                    x=i * self.LOCAL_WIDTH,
-                    y=j * self.LOCAL_WIDTH,
+        local = self.global_board[local_board]
+        for i in range(self.ROWS ** 2):
+            if local[i] is not None:
+                cell_x = x + (local_board % self.ROWS) * self.CELL_WIDTH
+                cell_y = y + (local_board // self.ROWS) * self.CELL_WIDTH
+                pg.draw.rect(
+                    surface=self.win,
+                    color=self.player_color_dict[local[i]],
+                    rect=pg.Rect((cell_x + 2, cell_y), (self.CELL_WIDTH - 3, self.CELL_WIDTH))
                 )
 
-        # draw global grid lines
-        self._draw_global_grid()
-
-        # draw board entries
-        for i in range(len(self.global_board)):
-            for j in range(len(self.global_board)):
-                if self.global_board[i, j] is not None:
-                    self._draw_cell(
-                        local_board=i,
-                        local_cell=j,
-                        player=self.global_board[i, j]
-                    )
-
-    def _render(self):
+    def _render_board(self):
         """
-        renders the game graphics on pygame screen
+        draws and renders the full game board
 
         @return: None
         """
+
         self.win.fill(self.BLACK)
-        self._draw_board()
-        pg.draw.rect(self.win, (100, 100, 100),
-                     pg.Rect((210, 210), (self.CELL_WIDTH, self.CELL_WIDTH)))
+
+        # TODO: Highlight playable boards
+        # TODO: Color each local board according to game state (green, red, yellow, or white)
+        # TODO: Implement board entries
+
+        # draw local board
+        for i in range(self.ROWS):
+            for j in range(self.ROWS):
+                self._draw_local(
+                    x=self.GAP + j * self.LOCAL_DISTANCE,
+                    y=self.GAP + i * self.LOCAL_DISTANCE,
+                    local_board=self.ROWS * i + j
+                )
+
         pg.display.update()
 
     def _cell_range(self, cell_corner, coord):
@@ -221,7 +194,7 @@ class UltimateTicTacToe:
 
         @return: None
         """
-        self.global_board[move] = self.player_dict[self.turn]
+        self.global_board[move] = self.player_turn_dict[self.turn]
 
     def main(self):
         """
@@ -231,7 +204,7 @@ class UltimateTicTacToe:
         """
         run = True
         self.playable_boards = [randint(0, 8)]  # pick random starting local board
-        self._render()
+        self._render_board()
         while run:
             self.clock.tick(self.FPS)
 
@@ -247,7 +220,7 @@ class UltimateTicTacToe:
                         if event.type == pg.MOUSEBUTTONDOWN:
                             mouse_press = pg.mouse.get_pos()
                             if self._valid_input(mouse_press=mouse_press):
-                                self._render()
+                                self._render_board()
                                 self.turn = not self.turn
 
             # agents turn
@@ -258,10 +231,14 @@ class UltimateTicTacToe:
                     playable_boards=self.playable_boards[:]
                 )
                 self._place_move(move=move)
-                self._render()
+                self._render_board()
                 self.turn = not self.turn
 
 
 if __name__ == "__main__":
     uttt = UltimateTicTacToe()
+    uttt.global_board[1, 0] = "B"
+    uttt.global_board[1, 1] = "R"
+    uttt.global_board[1, 2] = "B"
+    print(uttt)
     uttt.main()
