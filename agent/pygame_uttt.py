@@ -5,7 +5,7 @@ from random import randint
 from itertools import product
 from agent.main import Agent
 
-# TODO: try to make it so that this game does need a super computer to run
+# TODO: optimize game loop
 
 pg.init()
 pg.event.set_allowed([pg.QUIT, pg.MOUSEBUTTONDOWN])
@@ -17,11 +17,11 @@ class UltimateTicTacToe:
         """
         instantiation method
         """
-
         # Screen
         self.WIDTH = 640
         self.ROWS = 3
         self.GAP = 25
+        self.WIN_BORDER = 16
         self.LOCAL_WIDTH = (self.WIDTH - self.GAP * 4) // self.ROWS  # width of a local board
         self.LOCAL_DISTANCE = self.GAP + self.LOCAL_WIDTH  # distance between two consecutive local boards
         self.CELL_WIDTH = self.LOCAL_WIDTH // self.ROWS  # width of one cell
@@ -40,7 +40,7 @@ class UltimateTicTacToe:
         self.RED = (240, 75, 25)
         self.GREEN = (0, 205, 100)
 
-        # Game Board
+        # Game Board and Logic
         self.global_board = np.array(
             [
                 np.full(shape=self.ROWS ** 2, fill_value=None)
@@ -50,13 +50,14 @@ class UltimateTicTacToe:
         self.board_winners = [None for _ in range(self.ROWS ** 2)]  # Winners of each local board
         self.playable_boards = []  # Boards on which current turn can be played
         self.turn = True  # True if user's turn, false if agent's turn
+        self.winner = None
 
         # Agent
         self.agent = Agent()
         # DOXA uses R, B, and S for red, blue, and stalemate respectively.
         # These dictionaries help translate the DOXA lingo with the variables in this script
         self.player_turn_dict = {True: "R", False: "B"}
-        self.player_color_dict = {"R": self.RED, "B": self.GREEN, "S": self.LIGHT_GRAY}
+        self.player_color_dict = {"R": self.RED, "B": self.GREEN, "S": self.LIGHT_GRAY, None: self.LIGHT_GRAY}
 
     def __str__(self):
         """
@@ -92,6 +93,13 @@ class UltimateTicTacToe:
 
         @return: None
         """
+        # highlight playable board
+        if local_board in self.playable_boards:
+            pg.draw.rect(
+                surface=self.win,
+                color=self.BLUE,
+                rect=pg.Rect((x, y), (self.LOCAL_WIDTH, self.LOCAL_WIDTH))
+            )
 
         # draw local entries
         local = self.global_board[local_board]
@@ -109,16 +117,16 @@ class UltimateTicTacToe:
         for i in range(self.ROWS + 1):
             pg.draw.line(
                 surface=self.win,
-                color=self.LIGHT_GRAY,
+                color=self.player_color_dict[self.board_winners[local_board]],
                 start_pos=(x + self.CELL_WIDTH * i, y),
                 end_pos=(x + self.CELL_WIDTH * i, y + self.LOCAL_WIDTH),
                 width=3
             )
             pg.draw.line(
                 surface=self.win,
-                color=self.LIGHT_GRAY,
-                start_pos=(y, x + self.CELL_WIDTH * i),
-                end_pos=(y + self.LOCAL_WIDTH, x + self.CELL_WIDTH * i),
+                color=self.player_color_dict[self.board_winners[local_board]],
+                start_pos=(x, y + self.CELL_WIDTH * i),
+                end_pos=(x + self.LOCAL_WIDTH, y + self.CELL_WIDTH * i),
                 width=3
             )
 
@@ -128,11 +136,7 @@ class UltimateTicTacToe:
 
         @return: None
         """
-
         self.win.fill(self.BLACK)
-
-        # TODO: Highlight playable boards
-        # TODO: Color each local board according to game state (green, red, yellow, or white)
 
         # draw local board
         for i, j in product(range(self.ROWS), range(self.ROWS)):
@@ -171,46 +175,147 @@ class UltimateTicTacToe:
         @param mouse_press: tuple(float,float)
             (x,y) coordinates of user's mouse press
 
-        @return: bool
-            True if input is valid, False otherwise
+        @return: bool or (int, int)
+            False if invalid, (local_board, cell) if valid
         """
-        # TODO: Change to check playable boards instead of all boards
-        # TODO: along the way, diagnose the bug where agent places move somewhere different from current local board
-        for i, j in product(range(self.ROWS), range(self.ROWS)):
-            if self.board_winners[self.ROWS * i + j] is None:  # check only valid local boards
-                local_x = self.GAP + i * self.LOCAL_DISTANCE
-                local_y = self.GAP + j * self.LOCAL_DISTANCE
-                on_local = self._in_range(
-                    corner=(local_x, local_y),
-                    length=self.LOCAL_WIDTH,
-                    coord=mouse_press
-                )
-                if on_local:  # check all cells of the board user pressed
-                    for cell_num, cell_content in enumerate(self.global_board[self.ROWS * i + j]):
-                        if cell_content is None:
-                            cell_x = (cell_num % self.ROWS) * self.CELL_WIDTH
-                            cell_y = (cell_num // self.ROWS) * self.CELL_WIDTH
-                            valid = self._in_range(
-                                corner=(local_x + cell_x, local_y + cell_y),
-                                length=self.CELL_WIDTH,
-                                coord=mouse_press
-                            )
-                            if valid:
-                                print(f"Valid, cell_number = {cell_num}")
-                                return True
-                print("Invalid")
-                return False
+        for i in self.playable_boards:  # check only playable boards
+            local_x = self.GAP + (i % self.ROWS) * self.LOCAL_DISTANCE
+            local_y = self.GAP + (i // self.ROWS) * self.LOCAL_DISTANCE
+            on_local = self._in_range(
+                corner=(local_x, local_y),
+                length=self.LOCAL_WIDTH,
+                coord=mouse_press
+            )
+            if on_local:  # check all cells of the board user pressed
+                for cell_num, cell_content in enumerate(self.global_board[i]):
+                    if cell_content is None:
+                        cell_x = (cell_num % self.ROWS) * self.CELL_WIDTH
+                        cell_y = (cell_num // self.ROWS) * self.CELL_WIDTH
+                        valid = self._in_range(
+                            corner=(local_x + cell_x, local_y + cell_y),
+                            length=self.CELL_WIDTH,
+                            coord=mouse_press
+                        )
+                        if valid:
+                            return i, cell_num  # if valid, return the local board and cell number
+        return False
 
     def _place_move(self, move):
         """
-        enters a move in the game board
+        enters a move in the game board and updates the game states accordingly
 
-        @param move: tuple(int,int)
-            move location on the grid
+        @param move: tuple(int, int)
+            (local_board, cell) location on the grid
 
         @return: None
         """
-        self.global_board[move[::-1]] = self.player_turn_dict[self.turn]
+        # TODO: check stalemate and update board winners
+        # place move
+        self.global_board[move] = self.player_turn_dict[self.turn]
+
+        # update board winners if applicable
+        if self._check_win(self.global_board[move[0]]):
+            self.board_winners[move[0]] = self.player_turn_dict[self.turn]
+        elif self._check_stalemate(self.global_board[move[0]]):
+            self.board_winners[move[0]] = "S"
+
+        # update playable boards
+        if self.board_winners[move[1]] is None:
+            self.playable_boards = [move[1]]
+        elif self.board_winners[move[1]] in ("R", "B", "S"):
+            open_boards = [i for i in range(self.ROWS ** 2) if self.board_winners[i] is None]
+            self.playable_boards = open_boards
+
+        # check global win
+        if self._check_win(np.array(self.board_winners)) is not False:
+            self.winner = self.player_turn_dict[self.turn]
+
+    def _game_over(self):
+        """
+        puts the game in to game over state, where no more moves can be made
+
+        @return: None
+        """
+        for i in range(self.ROWS - 1):
+            pg.draw.line(
+                surface=self.win,
+                color=self.player_color_dict[self.winner],
+                start_pos=(self.WIN_BORDER, self.WIN_BORDER + i * (self.WIDTH - 2 * self.WIN_BORDER)),
+                end_pos=(self.WIDTH - self.WIN_BORDER, self.WIN_BORDER + i * (self.WIDTH - 2 * self.WIN_BORDER)),
+                width=6
+            )
+            pg.draw.line(
+                surface=self.win,
+                color=self.player_color_dict[self.winner],
+                start_pos=(self.WIN_BORDER + i * (self.WIDTH - 2 * self.WIN_BORDER), self.WIN_BORDER),
+                end_pos=(self.WIN_BORDER + i * (self.WIDTH - 2 * self.WIN_BORDER), self.WIDTH - self.WIN_BORDER),
+                width=6
+            )
+        pg.display.update()
+        while True:
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    pg.quit()
+                    sys.exit()
+
+    def _play_turn(self, move):
+        """
+        plays one turn, for agent or user
+
+        @param move: tuple(int, int)
+
+        @return: None
+        """
+        self._place_move(move=move)
+        self._render_board()
+        self.turn = not self.turn
+
+    def _all_same(self, arr):
+        """
+        Checks if all elements of arr are the same,
+        except for None or "S" for stalemate
+
+        @param arr: array[int]
+            array to check
+
+        @return: bool
+        """
+        if arr[0] is None or arr[0] == "S":
+            return False
+        return np.all(arr == arr[0])
+
+    def _check_win(self, board):
+        """
+        Checks if board has a win
+
+        @param board: array[Union[str, None]]
+            the board to check
+
+        @return: bool
+        """
+        board = board.reshape(3, 3)
+        diag1, diag2 = [], []
+        for i in range(self.ROWS):
+            diag1.append(board[i, i])
+            diag2.append(board[self.ROWS - (1 + i), i])
+            if self._all_same(board[i]) or self._all_same(board[:, i]):
+                return True
+        diag1 = np.array(diag1)
+        diag2 = np.array(diag2)
+        if self._all_same(diag1) or self._all_same(diag2):
+            return True
+        return False
+
+    def _check_stalemate(self, board):
+        """
+        Checks if board is a guaranteed stalemate
+
+        @param board: array[Union[str,None]]
+            the board to check
+
+        @return: bool
+        """
+        pass
 
     def main(self):
         """
@@ -235,9 +340,11 @@ class UltimateTicTacToe:
                             sys.exit()
                         if event.type == pg.MOUSEBUTTONDOWN:
                             mouse_press = pg.mouse.get_pos()
-                            if self._valid_input(mouse_press=mouse_press):
-                                self._render_board()
-                                self.turn = not self.turn
+                            user_input = self._valid_input(mouse_press=mouse_press)
+                            if user_input is not False:
+                                self._play_turn(move=user_input)
+                                if self.winner is not None:
+                                    self._game_over()
 
             # agents turn
             if not self.turn:
@@ -246,15 +353,11 @@ class UltimateTicTacToe:
                     board_winners=self.board_winners[:],
                     playable_boards=self.playable_boards[:]
                 )
-                self._place_move(move=move)
-                self._render_board()
-                self.turn = not self.turn
+                self._play_turn(move=move)
+                if self.winner is not None:
+                    self._game_over()
 
 
 if __name__ == "__main__":
     uttt = UltimateTicTacToe()
-    uttt.global_board[1, 0] = "B"
-    uttt.global_board[1, 1] = "R"
-    uttt.global_board[1, 2] = "B"
-    print(uttt)
     uttt.main()
