@@ -5,8 +5,6 @@ from random import randint
 from itertools import product
 from agent.main import Agent
 
-# TODO: optimize game loop
-
 pg.init()
 pg.event.set_allowed([pg.QUIT, pg.MOUSEBUTTONDOWN])
 
@@ -28,7 +26,7 @@ class UltimateTicTacToe:
         # by default there are (3x3) cells on local board
         # and (9x9) cells on global board
 
-        self.FPS = 20  # limit game to 20 FPS
+        self.FPS = 10  # limit game to 10 FPS
         self.clock = pg.time.Clock()
         self.win = pg.display.set_mode((self.WIDTH, self.WIDTH))  # pygame window
         pg.display.set_caption("Ultimate TicTacToe")
@@ -252,11 +250,14 @@ class UltimateTicTacToe:
                 width=6
             )
         pg.display.update()
+
+        # wait until user quits game
+        pg.event.clear()
         while True:
-            for event in pg.event.get():
-                if event.type == pg.QUIT:
-                    pg.quit()
-                    sys.exit()
+            event = pg.event.wait()
+            if event.type == pg.QUIT:
+                pg.quit()
+                sys.exit()
 
     def _play_turn(self, move):
         """
@@ -332,18 +333,18 @@ class UltimateTicTacToe:
 
             # user's turn
             while self.turn:
-                for event in pg.event.get():
-                    # if user quits game
-                    if event.type == pg.QUIT:
-                        pg.quit()
-                        sys.exit()
-                    if event.type == pg.MOUSEBUTTONDOWN:
-                        mouse_press = pg.mouse.get_pos()
-                        user_input = self._valid_input(mouse_press=mouse_press)
-                        if user_input is not False:
-                            self._play_turn(move=user_input)
-                            if self.winner is not None:
-                                self._game_over()
+                event = pg.event.wait()
+                # if user quits game
+                if event.type == pg.QUIT:
+                    pg.quit()
+                    sys.exit()
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    mouse_press = pg.mouse.get_pos()
+                    user_input = self._valid_input(mouse_press=mouse_press)
+                    if user_input is not False:
+                        self._play_turn(move=user_input)
+                        if self.winner is not None:
+                            self._game_over()
 
             # agents turn
             if not self.turn:
