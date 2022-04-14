@@ -328,23 +328,22 @@ class UltimateTicTacToe:
         self._render_board()
         while run:
             self.clock.tick(self.FPS)
+            pg.event.clear()
 
             # user's turn
-            if self.turn:
-                # loop until user enters input
-                while self.turn:
-                    for event in pg.event.get():
-                        # if user quits game
-                        if event.type == pg.QUIT:
-                            pg.quit()
-                            sys.exit()
-                        if event.type == pg.MOUSEBUTTONDOWN:
-                            mouse_press = pg.mouse.get_pos()
-                            user_input = self._valid_input(mouse_press=mouse_press)
-                            if user_input is not False:
-                                self._play_turn(move=user_input)
-                                if self.winner is not None:
-                                    self._game_over()
+            while self.turn:
+                for event in pg.event.get():
+                    # if user quits game
+                    if event.type == pg.QUIT:
+                        pg.quit()
+                        sys.exit()
+                    if event.type == pg.MOUSEBUTTONDOWN:
+                        mouse_press = pg.mouse.get_pos()
+                        user_input = self._valid_input(mouse_press=mouse_press)
+                        if user_input is not False:
+                            self._play_turn(move=user_input)
+                            if self.winner is not None:
+                                self._game_over()
 
             # agents turn
             if not self.turn:
