@@ -1,26 +1,24 @@
 import random
+import numpy as np
 from typing import List, Optional, Tuple
 
 from uttt import BaseAgent, UTTTGame
 
-#########################################################################
-#                                                                       #
-#       Modify the Agent class below to implement your own agent.       #
-#       You may define additional methods as you see fit.               #
-#                                                                       #
-#########################################################################
-
 
 class Agent(BaseAgent):
-    """
-    This is an example agent for the ultimate tic-tac-toe competition on Doxa.
 
-    Its current strategy is to play valid moves picked completely at random.
-    """
+    def __init__(self):
+        super().__init__()
+        self.LOCAL_POS_REWARD = np.array([
+            1, 0, 1,
+            0, 2, 0,
+            1, 0, 1
+        ])
+        self.TWO_ROW_REWARD = 3
+        self.THREE_ROW_REWARD = 10
+
     def make_move(
         self,
-        # If you have never seen this syntax before, these are type annotations!
-        # Don't worry - they're totally optional
         boards: List[List[Optional[str]]],
         board_winners: List[Optional[str]],
         playable_boards: List[int],
@@ -42,17 +40,20 @@ class Agent(BaseAgent):
         Returns:
             Tuple[int, int]: The local board and tile position to mark for your agent.
         """
+        """
+        move = None
+        high_score = -np.inf
+        for board in playable_boards:
+            for tile in range(9):
+                if boards[board][tile] is None:
+                    current_score = self.LOCAL_POS_REWARD[tile]
+                    
+                    if current_score > high_score:
+                        high_score = current_score
+                        move = (board, tile)
 
-        ################################################################################
-        #                                                                              #
-        #                   Replace this section with your own code!                   #
-        #                                                                              #
-        ################################################################################
-
-        # `self.player` is the player you are currently playing as (either R or B).
-        # Likewise, `self.opponent` is your opponent (either B or R).
-
-        # Find all the free tiles across the playable boards.
+        return move
+        """
         possible_moves = [
             (board, tile)
             for board in playable_boards

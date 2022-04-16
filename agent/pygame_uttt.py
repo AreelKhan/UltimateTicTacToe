@@ -1,4 +1,5 @@
 import sys
+import collections
 import pygame as pg
 import numpy as np
 from random import randint
@@ -23,8 +24,6 @@ class UltimateTicTacToe:
         self.LOCAL_WIDTH = (self.WIDTH - self.GAP * 4) // self.ROWS  # width of a local board
         self.LOCAL_DISTANCE = self.GAP + self.LOCAL_WIDTH  # distance between two consecutive local boards
         self.CELL_WIDTH = self.LOCAL_WIDTH // self.ROWS  # width of one cell
-        # by default there are (3x3) cells on local board
-        # and (9x9) cells on global board
 
         self.FPS = 10  # limit game to 10 FPS
         self.clock = pg.time.Clock()
@@ -37,6 +36,7 @@ class UltimateTicTacToe:
         self.BLUE = (0, 75, 150)
         self.RED = (240, 75, 25)
         self.GREEN = (0, 205, 100)
+        self.YELLOW = (245, 230, 75)
 
         # Game Board and Logic
         self.global_board = np.array(
@@ -53,9 +53,9 @@ class UltimateTicTacToe:
         # Agent
         self.agent = Agent()
         # DOXA uses R, B, and S for red, blue, and stalemate respectively.
-        # These dictionaries help translate the DOXA lingo with the variables in this script
+        # These dictionaries help translate the DOXA lingo with the variables in this program
         self.player_turn_dict = {True: "R", False: "B"}
-        self.player_color_dict = {"R": self.RED, "B": self.GREEN, "S": self.LIGHT_GRAY, None: self.LIGHT_GRAY}
+        self.player_color_dict = {"R": self.RED, "B": self.GREEN, "S": self.YELLOW, None: self.LIGHT_GRAY}
 
     def __str__(self):
         """
@@ -91,7 +91,7 @@ class UltimateTicTacToe:
 
         @return: None
         """
-        # highlight playable board
+        # highlight playable boards
         if local_board in self.playable_boards:
             pg.draw.rect(
                 surface=self.win,
@@ -207,14 +207,14 @@ class UltimateTicTacToe:
 
         @return: None
         """
-        # TODO: check stalemate and update board winners
         # place move
         self.global_board[move] = self.player_turn_dict[self.turn]
 
         # update board winners if applicable
-        if self._check_win(self.global_board[move[0]]):
+        board_state = self._check_status(self.global_board[move[0]])
+        if board_state == "W":
             self.board_winners[move[0]] = self.player_turn_dict[self.turn]
-        elif self._check_stalemate(self.global_board[move[0]]):
+        elif board_state == "S":
             self.board_winners[move[0]] = "S"
 
         # update playable boards
@@ -225,8 +225,75 @@ class UltimateTicTacToe:
             self.playable_boards = open_boards
 
         # check global win
-        if self._check_win(np.array(self.board_winners)) is not False:
+        global_status = self._check_status(np.array(self.board_winners))
+        if global_status == "W":
             self.winner = self.player_turn_dict[self.turn]
+        elif global_status == "S":
+            self.winner = "S"
+
+    def _play_turn(self, move):
+        """
+        given a move plays one turn, for agent or user
+
+        @param move: tuple(int, int)
+
+        @return: None
+        """
+        self._place_move(move=move)
+        self._render_board()
+        self.turn = not self.turn
+
+    def _win_arr(self, arr):
+        """
+        Checks if arr is a three-in-a-row for either players,
+        except for None or "S" for stalemate
+
+        @param arr: array[Union[int, str]]
+            array to check
+
+        @return: bool
+        """
+        if arr[0] is None or arr[0] == "S":
+            return False
+        return np.all(arr == arr[0])
+
+    def _stale_arr(self, arr):
+        count = collections.Counter(arr)
+        if count["R"] > 0 and count["B"] > 0:
+            return True
+        return False
+
+    def _check_status(self, board):
+        """
+        Checks if board is a win, guaranteed stalemate or undecided
+
+        @param board: array[Union[str, None]]
+            the board to check
+
+        @return: str
+            W for win
+            S for guaranteed stalemate
+            U for undecided
+        """
+        board = board.reshape(3, 3)
+        stale_count = 0
+        diag1, diag2 = [], []
+        for i in range(self.ROWS):
+            diag1.append(board[i, i])
+            diag2.append(board[self.ROWS - (1 + i), i])
+            if self._win_arr(board[i]) or self._win_arr(board[:, i]):
+                return "W"
+            stale_count += self._stale_arr(board[i])
+            stale_count += self._stale_arr(board[:, i])
+        diag1 = np.array(diag1)
+        diag2 = np.array(diag2)
+        if self._win_arr(diag1) or self._win_arr(diag2):
+            return "W"
+        stale_count += self._stale_arr(diag1)
+        stale_count += self._stale_arr(diag2)
+        if stale_count == 8:
+            return "S"
+        return "U"
 
     def _game_over(self):
         """
@@ -258,65 +325,6 @@ class UltimateTicTacToe:
             if event.type == pg.QUIT:
                 pg.quit()
                 sys.exit()
-
-    def _play_turn(self, move):
-        """
-        plays one turn, for agent or user
-
-        @param move: tuple(int, int)
-
-        @return: None
-        """
-        self._place_move(move=move)
-        self._render_board()
-        self.turn = not self.turn
-
-    def _all_same(self, arr):
-        """
-        Checks if all elements of arr are the same,
-        except for None or "S" for stalemate
-
-        @param arr: array[int]
-            array to check
-
-        @return: bool
-        """
-        if arr[0] is None or arr[0] == "S":
-            return False
-        return np.all(arr == arr[0])
-
-    def _check_win(self, board):
-        """
-        Checks if board has a win
-
-        @param board: array[Union[str, None]]
-            the board to check
-
-        @return: bool
-        """
-        board = board.reshape(3, 3)
-        diag1, diag2 = [], []
-        for i in range(self.ROWS):
-            diag1.append(board[i, i])
-            diag2.append(board[self.ROWS - (1 + i), i])
-            if self._all_same(board[i]) or self._all_same(board[:, i]):
-                return True
-        diag1 = np.array(diag1)
-        diag2 = np.array(diag2)
-        if self._all_same(diag1) or self._all_same(diag2):
-            return True
-        return False
-
-    def _check_stalemate(self, board):
-        """
-        Checks if board is a guaranteed stalemate
-
-        @param board: array[Union[str,None]]
-            the board to check
-
-        @return: bool
-        """
-        pass
 
     def main(self):
         """
