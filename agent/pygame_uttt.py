@@ -13,9 +13,6 @@ pg.event.set_allowed([pg.QUIT, pg.MOUSEBUTTONDOWN])
 class UltimateTicTacToe:
 
     def __init__(self):
-        """
-        instantiation method
-        """
         # Screen
         self.WIDTH = 640
         self.ROWS = 3
@@ -61,8 +58,8 @@ class UltimateTicTacToe:
         """
         Implements the string representation of the UltimateTicTacToe game object
 
-        @return: str
-            string representation of the game board in current state
+        Returns:
+            str: string representation of the game board in current state.
         """
         sep = ""
         str_board = ""
@@ -82,14 +79,11 @@ class UltimateTicTacToe:
 
     def _draw_local(self, x, y, local_board):
         """
-        draws the grid lines for a local board at position x,y
+        Draws the grid lines for a local board at position x,y
 
-        @param x: float
-            the x co-ordinate of the top left corner where the board must be drawn
-        @param y: float
-            the y co-ordinate of the top left corner where the board must be drawn
-
-        @return: None
+        Args:
+            x (float): x co-ordinate of the top left corner where the board must be drawn.
+            y (float): y co-ordinate of the top left corner where the board must be drawn.
         """
         # highlight playable boards
         if local_board in self.playable_boards:
@@ -130,9 +124,10 @@ class UltimateTicTacToe:
 
     def _render_board(self):
         """
-        draws and renders the full game board
+        Draws and renders the full game board.
 
-        @return: None
+        Returns:
+                None
         """
         self.win.fill(self.BLACK)
 
@@ -148,18 +143,16 @@ class UltimateTicTacToe:
 
     def _in_range(self, corner, length, coord):
         """
-        checks if coord falls within the square with side length equal to the
-        length parameter and top left corner at the corner parameter
+        Checks if coord falls within the square with side length equal to the
+        length parameter and top left corner at the corner parameter.
 
-        @param corner: tuple(int, int)
-            top left corner of square
-        @param length: int
-            length of square
-        @param coord: tuple(int, int)
-            coordinates to check
+        Args:
+            corner (Tuple[int, int]): top left corner of square.
+            length (int): length of square.
+            coord (Tuple[int, int]): coordinates to check.
 
-        @return: bool
-            True if coord in cell, False otherwise
+        Returns:
+            bool: True if coord in cell, False otherwise
         """
         if corner[0] <= coord[0] <= corner[0] + length:
             if corner[1] <= coord[1] <= corner[1] + length:
@@ -168,13 +161,13 @@ class UltimateTicTacToe:
 
     def _valid_input(self, mouse_press):
         """
-        validates if the location of the player's mouse press is on a valid cell
+        Validates if the location of the player's mouse press is on a valid cell
 
-        @param mouse_press: tuple(float,float)
-            (x,y) coordinates of user's mouse press
+        Args:
+            mouse_press (Tuple[int, int]): (x,y) coordinates of user's mouse press
 
-        @return: bool or (int, int)
-            False if invalid, (local_board, cell) if valid
+        Returns:
+            bool OR Tuple[int, int]: False if invalid, (local_board, cell) if valid
         """
         for i in self.playable_boards:  # check only playable boards
             local_x = self.GAP + (i % self.ROWS) * self.LOCAL_DISTANCE
@@ -200,12 +193,10 @@ class UltimateTicTacToe:
 
     def _place_move(self, move):
         """
-        enters a move in the game board and updates the game states accordingly
+        Enters a move in the game board and updates the game states accordingly
 
-        @param move: tuple(int, int)
-            (local_board, cell) location on the grid
-
-        @return: None
+        Args:
+            move (Tuple[int, int]): the location on the grid (local_board, cell)
         """
         # place move
         self.global_board[move] = self.player_turn_dict[self.turn]
@@ -233,12 +224,12 @@ class UltimateTicTacToe:
 
     def _play_turn(self, move):
         """
-        given a move plays one turn, for agent or user
+        Given a move plays one turn, for agent or user
 
-        @param move: tuple(int, int)
-
-        @return: None
+        Args:
+            move (Tuple[int, int]): the location on the grid (local_board, cell)
         """
+
         self._place_move(move=move)
         self._render_board()
         self.turn = not self.turn
@@ -248,10 +239,11 @@ class UltimateTicTacToe:
         Checks if arr is a three-in-a-row for either players,
         except for None or "S" for stalemate
 
-        @param arr: array[Union[int, str]]
-            array to check
+        Args:
+            arr (array[Union[str, None]]): array to check
 
-        @return: bool
+        Returns:
+            bool: True if arr is has a three in a row
         """
         if arr[0] is None or arr[0] == "S":
             return False
@@ -267,13 +259,14 @@ class UltimateTicTacToe:
         """
         Checks if board is a win, guaranteed stalemate or undecided
 
-        @param board: array[Union[str, None]]
-            the board to check
+        Args:
+            board (array[Union[str, None]]): board to check for win
 
-        @return: str
-            W for win
-            S for guaranteed stalemate
-            U for undecided
+        Returns:
+            str:
+                'W' for win.
+                'S' for guaranteed stalemate.
+                'U' for undecided.
         """
         board = board.reshape(3, 3)
         stale_count = 0
@@ -297,9 +290,10 @@ class UltimateTicTacToe:
 
     def _game_over(self):
         """
-        puts the game in to game over state, where no more moves can be made
+        Puts the game in to game over state, where no more moves can be made
 
-        @return: None
+        Returns:
+            None
         """
         for i in range(self.ROWS - 1):
             pg.draw.line(
@@ -328,9 +322,10 @@ class UltimateTicTacToe:
 
     def main(self):
         """
-        main pygame game loop
+        Main pygame game loop
 
-        @return: None
+        Returns:
+            None
         """
         run = True
         self.playable_boards = [randint(0, 8)]  # pick random starting local board
